@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether BI - Premium Generative Analytics Assistant</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="/static/tailwind.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0b0f19',
+                        slate: {
+                            950: '#0b0f19',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="/static/style.css">
+    
+    <!-- FontAwesome & Plotly -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/plotly.min.js"></script>
+</head>
+<body class="bg-mesh-grid text-slate-100 dark:text-slate-100 h-screen overflow-hidden flex flex-col lg:flex-row">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden">
+        <div class="glass-panel p-8 text-center max-w-sm w-full mx-4 shadow-2xl relative border-cyan-500/20">
+            <div class="pulse-glow w-16 h-16 mx-auto mb-6 flex items-center justify-center bg-purple-600/30 rounded-full">
+                <i class="fa-solid fa-brain text-purple-400 text-3xl animate-pulse"></i>
+            </div>
+            <h3 id="loadingText" class="text-xl font-bold mb-2 text-white font-outfit">
+                AI is compiling insights...
+            </h3>
+            <p class="text-slate-400 text-sm mb-4">
+                Please wait while the local LLM generates responses. This might take a moment.
+            </p>
+            <div class="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-500 to-cyan-500 h-full rounded-full animate-infinite w-2/3" style="animation: loadingBar 2s infinite ease-in-out;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        @keyframes loadingBar {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(150%); }
+        }
+    </style>
+
+    <!-- Sidebar Backdrop Overlay for Mobile -->
+    <div id="sidebar-overlay" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 hidden lg:hidden"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="fixed lg:sticky top-0 left-0 z-40 h-screen w-64 bg-slate-900/90 dark:bg-slate-950/90 border-r border-white/5 flex flex-col justify-between sidebar-transition -translate-x-full lg:translate-x-0">
+        <div>
+            <!-- Sidebar Header / Logo -->
+            <div class="p-5 flex items-center justify-between border-b border-white/5">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                        <i class="fa-solid fa-chart-line text-white text-lg"></i>
+                    </div>
+                    <span id="sidebar-brand" class="font-extrabold text-lg tracking-wider bg-gradient-to-r from-white via-purple-300 to-cyan-400 bg-clip-text text-transparent font-outfit">AETHER BI</span>
+                </div>
+                <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white lg:block hidden">
+                    <i id="sidebar-toggle-icon" class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+            </div>
+            
+            <!-- Dataset Selector Status Widget -->
+            <div class="px-4 py-4 border-b border-white/5" id="dataset-status-widget">
+                <div class="glass-panel p-3 bg-white/5 border-white/10 rounded-lg">
+                    <span class="text-[10px] text-purple-400 font-bold uppercase tracking-wider block mb-1">Active Dataset</span>
+                    <div class="flex items-center justify-between">
+                        <span id="active-dataset-lbl" class="text-sm font-semibold text-white truncate max-w-[120px]">None loaded</span>
+                        <i class="fa-solid fa-circle text-[8px] text-red-500 animate-pulse" id="active-dataset-dot"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="p-3 space-y-1">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-active flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition text-left text-sm font-medium">
+                    <i class="fa-solid fa-cubes text-base w-5"></i>
+                    <span class="sidebar-label">BI Dashboard</span>
+                </button>
+                <button onclick="switchTab('sql-editor')" id="nav-sql-editor" class="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition text-left text-sm font-medium">
+                    <i class="fa-solid fa-code text-base w-5"></i>
+                    <span class="sidebar-label">AI SQL Generator</span>
+                </button>
+                <button onclick="switchTab('data-explorer')" id="nav-data-explorer" class="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition text-left text-sm font-medium">
+                    <i class="fa-solid fa-database text-base w-5"></i>
+                    <span class="sidebar-label">Data Explorer</span>
+                </button>
+                <button onclick="switchTab('forecast-analytics')" id="nav-forecast-analytics" class="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition text-left text-sm font-medium">
+                    <i class="fa-solid fa-wand-magic-sparkles text-base w-5"></i>
+                    <span class="sidebar-label">Forecast Engine</span>
+                </button>
+                <button onclick="switchTab('query-history')" id="nav-query-history" class="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition text-left text-sm font-medium">
+                    <i class="fa-solid fa-clock-rotate-left text-base w-5"></i>
+                    <span class="sidebar-label">Query History</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Sidebar Footer / Settings Toggle -->
+        <div class="p-3 border-t border-white/5">
+            <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3" id="sidebar-user-section">
+                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs text-purple-400">
+                        BI
+                    </div>
+                    <div class="sidebar-label leading-tight">
+                        <p class="text-xs font-semibold text-white">Administrator</p>
+                        <p class="text-[9px] text-slate-400">Enterprise Access</p>
+                    </div>
+                </div>
+                <button onclick="toggleTheme()" class="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-white/5 flex items-center justify-center text-slate-300 hover:text-white transition">
+                    <i id="theme-toggle-icon" class="fa-solid fa-sun text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 flex flex-col h-full overflow-y-auto relative">
+        
+        <!-- Sticky Glass Navbar -->
+        <header class="sticky top-0 bg-slate-900/60 dark:bg-slate-950/60 border-b border-white/5 backdrop-blur-md px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between z-30">
+            <div class="flex items-center gap-2 sm:gap-4 min-w-0">
+                <button onclick="toggleMobileSidebar()" class="lg:hidden text-slate-300 hover:text-white">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <h2 id="page-title" class="text-sm sm:text-base md:text-lg font-bold font-outfit text-white truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">Analytics Workspace</h2>
+            </div>
+            
+            <div class="flex items-center gap-2 sm:gap-4 shrink-0">
+                <!-- AI Model Dropdown switcher -->
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <label class="text-xs text-slate-400 hidden sm:inline-block">AI Model:</label>
+                    <select id="model-switcher" onchange="onModelSwitched(this.value)" class="bg-slate-800/90 border border-white/10 rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs text-slate-200 outline-none focus:border-purple-500 cursor-pointer max-w-[120px] sm:max-w-xs">
+                        <option value="llama3.2:1b">llama3.2:1b</option>
+                    </select>
+                </div>
+                
+                <!-- Dataset Dropdown switcher -->
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <label class="text-xs text-slate-400 hidden sm:inline-block">Dataset:</label>
+                    <select id="dataset-switcher" onchange="onDatasetSwitched(this.value)" class="bg-slate-800/90 border border-white/10 rounded-lg px-2 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs text-slate-200 outline-none focus:border-purple-500 cursor-pointer max-w-[100px] sm:max-w-xs">
+                        <option value="">No tables loaded</option>
+                    </select>
+                </div>
+                
+                <!-- Quick Reset/Initializer -->
+                <button onclick="loadSelectedDataset()" id="init-btn" class="text-[11px] sm:text-xs px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 font-semibold transition flex items-center gap-1">
+                    <i class="fa-solid fa-sync"></i> <span class="hidden sm:inline">Restore Default</span><span class="sm:hidden">Restore</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Screen -->
+        <div class="flex-1 p-6 space-y-6 w-full max-w-none">
+
+            <!-- TAB 1: BI DASHBOARD -->
+            <div id="tab-dashboard" class="space-y-6 slide-up">
+                
+                <!-- KPI metrics cards panel -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-panel-container">
+                    <!-- Cards will be populated dynamically -->
+                    <div class="glass-panel p-4 flex items-center justify-between border-white/5">
+                        <div>
+                            <span class="text-xs text-slate-400 block mb-1">Total Rows</span>
+                            <span class="text-2xl font-bold font-outfit text-white" id="kpi-total-rows">-</span>
+                        </div>
+                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
+                            <i class="fa-solid fa-list-ol text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center justify-between border-white/5">
+                        <div>
+                            <span class="text-xs text-slate-400 block mb-1">Total Revenue</span>
+                            <span class="text-2xl font-bold font-outfit text-white" id="kpi-revenue">-</span>
+                        </div>
+                        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                            <i class="fa-solid fa-dollar-sign text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center justify-between border-white/5">
+                        <div>
+                            <span class="text-xs text-slate-400 block mb-1">Items Sold</span>
+                            <span class="text-2xl font-bold font-outfit text-white" id="kpi-quantity">-</span>
+                        </div>
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
+                            <i class="fa-solid fa-shopping-bag text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-4 flex items-center justify-between border-white/5">
+                        <div>
+                            <span class="text-xs text-slate-400 block mb-1">Avg Discount</span>
+                            <span class="text-2xl font-bold font-outfit text-white" id="kpi-discount">-</span>
+                        </div>
+                        <div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                            <i class="fa-solid fa-tag text-lg"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Layout Grid (Chart/Preview Left, AI Chat Right) -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left Side: Analytics & Chart -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Chart Panel -->
+                        <div class="glass-panel-glow-purple p-5 flex flex-col min-h-[460px]">
+                            <div class="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+                                <div>
+                                    <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-chart-simple text-purple-400"></i> Visualization Canvas
+                                    </h3>
+                                    <span class="text-xs text-slate-400">Smart suggested chart based on database output</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <!-- Chart type Override controls -->
+                                    <select id="chart-type-override" onchange="overrideChartType(this.value)" class="bg-slate-800/90 border border-white/10 rounded px-2 py-1 text-[11px] text-slate-200 outline-none cursor-pointer">
+                                        <option value="auto">Auto Select</option>
+                                        <option value="bar">Bar Chart</option>
+                                        <option value="line">Line Chart</option>
+                                        <option value="pie">Pie Chart</option>
+                                        <option value="scatter">Scatter Plot</option>
+                                        <option value="heatmap">Heatmap</option>
+                                    </select>
+                                    <button onclick="downloadChartImage()" title="Download Chart PNG" class="text-slate-400 hover:text-white p-1 hover:bg-white/5 rounded">
+                                        <i class="fa-solid fa-download text-sm"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="chart" class="flex-1 flex items-center justify-center text-slate-400 text-sm">
+                                <div class="text-center">
+                                    <i class="fa-solid fa-chart-line text-4xl text-slate-600 mb-2 animate-bounce"></i>
+                                    <p>Ask a question or load data to generate visualizations</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Preview Table (Active Query Output) -->
+                        <div class="glass-panel p-5 space-y-4">
+                            <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                                <div>
+                                    <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-table text-cyan-400"></i> Query Output Preview
+                                    </h3>
+                                    <span class="text-xs text-slate-400" id="query-preview-count">Showing 0 rows</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="exportTableToCSV()" class="text-xs px-3 py-1.5 rounded bg-slate-800 border border-white/10 text-slate-300 hover:text-white transition flex items-center gap-1">
+                                        <i class="fa-solid fa-file-csv"></i> Export CSV
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto max-h-[300px]">
+                                <table id="resultTable" class="custom-table text-sm">
+                                    <thead>
+                                        <tr>
+                                            <th class="px-4 py-3 text-left">Columns</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="px-4 py-3 text-slate-500 italic text-center">No active query data. Ask a question to fetch results.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Side: AI Assistant Chat -->
+                    <div class="lg:col-span-1 flex flex-col h-[750px] glass-panel-glow-cyan overflow-hidden">
+                        <!-- Chat Header -->
+                        <div class="p-4 border-b border-white/5 flex items-center justify-between bg-slate-900/40">
+                            <div class="flex items-center gap-2">
+                                <span class="relative flex h-2 w-2">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                                </span>
+                                <h3 class="font-bold font-outfit text-sm text-white">AI Analyst Copilot</h3>
+                            </div>
+                            <button onclick="clearChat()" class="text-xs text-slate-400 hover:text-white transition" title="Clear Chat">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+
+                        <!-- Chat Bubbles Pane -->
+                        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4">
+                            <!-- System Greeting Bubble -->
+                            <div class="flex gap-3 max-w-[85%] slide-up">
+                                <div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 shrink-0">
+                                    <i class="fa-solid fa-robot"></i>
+                                </div>
+                                <div class="p-3 rounded-2xl bg-slate-800/60 border border-white/5 text-xs leading-relaxed text-slate-200">
+                                    Hello! I am your generative analytics assistant. Ask me questions about your dataset in natural language, and I will generate SQL, visualizations, and business insights.
+                                </div>
+                            </div>
+                            
+                            <!-- Prompt suggestions -->
+                            <div class="space-y-2 py-2" id="chat-suggestions-container">
+                                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Suggested Questions</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <button onclick="fillAndSubmitPrompt('Show total sales by product')" class="text-xs px-3 py-1.5 rounded-full bg-purple-500/5 hover:bg-purple-500/10 border border-purple-500/10 hover:border-purple-500/30 text-purple-300 text-left transition duration-200">
+                                        Total sales by product
+                                    </button>
+                                    <button onclick="fillAndSubmitPrompt('Show product with highest quantity sold')" class="text-xs px-3 py-1.5 rounded-full bg-cyan-500/5 hover:bg-cyan-500/10 border border-cyan-500/10 hover:border-cyan-500/30 text-cyan-300 text-left transition duration-200">
+                                        Highest quantity sold
+                                    </button>
+                                    <button onclick="fillAndSubmitPrompt('What is the average discount for each customer_id')" class="text-xs px-3 py-1.5 rounded-full bg-indigo-500/5 hover:bg-indigo-500/10 border border-indigo-500/10 hover:border-indigo-500/30 text-indigo-300 text-left transition duration-200">
+                                        Avg discount by customer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Typing Indicator -->
+                        <div id="typing-indicator" class="px-4 py-2 border-t border-white/5 bg-slate-900/20 hidden">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shrink-0">
+                                    <i class="fa-solid fa-spinner animate-spin"></i>
+                                </div>
+                                <div class="flex items-center gap-1 bg-slate-800/40 border border-white/5 px-3 py-2 rounded-2xl">
+                                    <div class="typing-dot"></div>
+                                    <div class="typing-dot"></div>
+                                    <div class="typing-dot"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Input Box -->
+                        <div class="p-3 border-t border-white/5 bg-slate-900/50">
+                            <div class="flex gap-2 relative">
+                                <input id="chat-question" type="text" placeholder="E.g. Show sum of sales by product_id" onkeydown="handleChatKey(event)" class="w-full bg-slate-800/90 border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-slate-200 placeholder-slate-400 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition">
+                                <button onclick="askAI()" class="absolute right-2 top-2 w-8 h-8 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white flex items-center justify-center hover:opacity-90 active:scale-95 transition">
+                                    <i class="fa-solid fa-paper-plane text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- TAB 2: AI SQL GENERATOR -->
+            <div id="tab-sql-editor" class="space-y-6 hidden slide-up">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    <!-- Left: SQL Code Terminal Editor -->
+                    <div class="glass-panel p-5 flex flex-col space-y-4">
+                        <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                            <div>
+                                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-code text-purple-400"></i> AI SQL Terminal
+                                </h3>
+                                <span class="text-xs text-slate-400">Modify the query syntax manually and run it</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="copySQLCode()" class="text-xs p-1.5 text-slate-400 hover:text-white" title="Copy SQL">
+                                    <i class="fa-solid fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 min-h-[300px] bg-slate-950/80 border border-white/10 rounded-xl overflow-hidden flex flex-col">
+                            <div class="bg-slate-900 px-4 py-2 border-b border-white/5 flex items-center justify-between text-xs text-slate-400">
+                                <span>sqlite_terminal.sql</span>
+                                <span class="text-purple-400 uppercase font-bold text-[10px]">Read & Write</span>
+                            </div>
+                            <textarea id="sql-editor-textarea" class="flex-1 w-full bg-slate-950 p-4 font-mono text-sm text-cyan-300 outline-none resize-none leading-relaxed" style="tab-size: 4;"></textarea>
+                        </div>
+                        
+                        <div class="flex items-center justify-end gap-3 pt-2">
+                            <button onclick="runEditorSQL()" class="px-5 py-2.5 rounded-lg btn-neon-purple text-sm font-semibold transition flex items-center gap-2">
+                                <i class="fa-solid fa-circle-play"></i> Execute Query
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: SQL Logs & Preview -->
+                    <div class="glass-panel p-5 flex flex-col min-h-[460px]">
+                        <div class="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+                            <div>
+                                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-clipboard-list text-cyan-400"></i> Terminal Output
+                                </h3>
+                                <span class="text-xs text-slate-400">Output of query execution and errors</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex-grow overflow-x-auto">
+                            <table id="editorResultTable" class="custom-table text-xs">
+                                <thead>
+                                    <tr>
+                                        <th class="px-3 py-2 text-left">Columns</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="px-3 py-4 text-slate-500 italic text-center">Execute a query from the SQL panel to display tabular results here.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 3: DATA EXPLORER & SCHEMA -->
+            <div id="tab-data-explorer" class="space-y-6 hidden slide-up">
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left: Table list & File uploader -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Upload Box -->
+                        <div class="glass-panel p-5 space-y-4">
+                            <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up text-purple-400"></i> Upload Dataset
+                            </h3>
+                            <p class="text-xs text-slate-400">
+                                Import a local CSV or Excel (.xlsx) file to create a dynamic table in SQLite.
+                            </p>
+                            
+                            <!-- Drag & Drop Zone -->
+                            <div id="dropzone" class="border-2 border-dashed border-white/10 hover:border-purple-500/40 rounded-xl p-6 text-center cursor-pointer transition bg-white/5 flex flex-col items-center justify-center min-h-[140px]" onclick="document.getElementById('csvFile').click()">
+                                <i class="fa-solid fa-file-excel text-3xl text-slate-500 mb-2" id="upload-icon"></i>
+                                <span class="text-xs text-slate-300 font-semibold mb-1" id="upload-status-lbl">Drag files here or click to browse</span>
+                                <span class="text-[9px] text-slate-500">Supports CSV, XLSX up to 50MB</span>
+                                <input type="file" id="csvFile" accept=".csv,.xlsx,.xls" class="hidden" onchange="handleFileSelected(this)">
+                            </div>
+                            
+                            <button id="uploadBtn" onclick="uploadCSVFile()" class="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-white font-semibold transition text-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-upload"></i> Process Dataset
+                            </button>
+                        </div>
+
+                        <!-- Available Tables List -->
+                        <div class="glass-panel p-5 space-y-4">
+                            <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                <i class="fa-solid fa-table-list text-cyan-400"></i> Available Tables
+                            </h3>
+                            <div class="space-y-2 max-h-[250px] overflow-y-auto" id="tables-list-container">
+                                <!-- Populated dynamically -->
+                                <p class="text-xs text-slate-500 italic">Scanning database tables...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Table Schema & Full Preview -->
+                    <div class="lg:col-span-2 space-y-6">
+                        
+                        <!-- Columns/Types Schema -->
+                        <div class="glass-panel p-5 space-y-4">
+                            <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                                <div>
+                                    <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-circle-info text-cyan-400"></i> Schema Viewer
+                                    </h3>
+                                    <span class="text-xs text-slate-400" id="schema-viewer-tbl-lbl">Dataset columns metadata</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" id="schema-viewer-grid">
+                                <!-- Populated dynamically -->
+                                <div class="p-3 bg-white/5 border border-white/5 rounded-lg text-center">
+                                    <span class="text-slate-400 text-xs italic">Select a table to view schema</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Full Preview grid -->
+                        <div class="glass-panel p-5 space-y-4">
+                            <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                                <div>
+                                    <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-table-cells text-purple-400"></i> Table Preview (First 100 rows)
+                                    </h3>
+                                    <span class="text-xs text-slate-400" id="explorer-preview-lbl">Tabular browser</span>
+                                </div>
+                                <input type="text" id="table-preview-search" oninput="filterPreviewTable(this.value)" placeholder="Search rows..." class="bg-slate-800/80 border border-white/10 rounded px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 outline-none w-48 focus:border-purple-500">
+                            </div>
+                            <div class="overflow-x-auto max-h-[350px]">
+                                <table id="explorerPreviewTable" class="custom-table text-xs">
+                                    <thead>
+                                        <tr>
+                                            <th class="px-3 py-2 text-left">Columns</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="px-3 py-4 text-slate-500 italic text-center">Select a table in the sidebar to explore.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- TAB 4: FORECAST ANALYTICS -->
+            <div id="tab-forecast-analytics" class="space-y-6 hidden slide-up">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left: Controls -->
+                    <div class="lg:col-span-1 glass-panel p-5 space-y-4">
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-purple-400"></i> Forecast Controls
+                        </h3>
+                        <p class="text-xs text-slate-400">
+                            Generate trend lines and predictive metrics based on time-series records of your latest query results.
+                        </p>
+                        
+                        <div class="space-y-3" id="forecast-controls-box">
+                            <p class="text-xs text-slate-500 italic">No historical query run. Run a query in Dashboard tab first containing a date column and a numeric measure.</p>
+                        </div>
+                        
+                        <button onclick="computeForecast()" id="compute-forecast-btn" disabled class="w-full py-2.5 rounded-lg btn-neon-purple text-sm font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Project Future Trend
+                        </button>
+                    </div>
+
+                    <!-- Right: Forecast plots -->
+                    <div class="lg:col-span-2 glass-panel p-5 flex flex-col min-h-[460px] space-y-4">
+                        <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                            <div>
+                                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-chart-area text-cyan-400"></i> Predictive Analytics Chart
+                                </h3>
+                                <span class="text-xs text-slate-400">Historical trend and future projection (dashed)</span>
+                            </div>
+                        </div>
+                        <div id="forecast-chart" class="flex-grow flex items-center justify-center text-slate-400 text-sm">
+                            <div class="text-center">
+                                <i class="fa-solid fa-chart-gantt text-4xl text-slate-600 mb-2"></i>
+                                <p>Select data columns and click "Project Future Trend"</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 5: QUERY HISTORY -->
+            <div id="tab-query-history" class="space-y-6 hidden slide-up">
+                <div class="glass-panel p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                        <div>
+                            <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                <i class="fa-solid fa-clock-rotate-left text-purple-400"></i> Database Logs
+                            </h3>
+                            <span class="text-xs text-slate-400">Audit trail of generated SQL, status, and processing times</span>
+                        </div>
+                        <button onclick="loadQueryHistory()" class="text-xs px-3 py-1.5 rounded bg-slate-800 border border-white/10 text-slate-300 hover:text-white transition">
+                            <i class="fa-solid fa-rotate-right"></i> Refresh Logs
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table id="historyTable" class="custom-table text-xs">
+                            <thead>
+                                <tr class="text-left">
+                                    <th class="px-4 py-3">Timestamp</th>
+                                    <th class="px-4 py-3">Dataset</th>
+                                    <th class="px-4 py-3">Question</th>
+                                    <th class="px-4 py-3">SQL Query</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Loaded dynamically -->
+                                <tr>
+                                    <td colspan="6" class="px-4 py-6 text-slate-500 italic text-center">No logs found. Run queries to populate.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- UI Logic Controller Script -->
+    <script>
+        // Application Global States
+        let currentTab = 'dashboard';
+        let activeTable = '';
+        let tableList = [];
+        let currentQueryResults = null; // {columns: [], rows: []}
+        let activeChartData = null; // Store current Plotly payload
+        let activeModel = 'llama3.2:1b';
+        let modelList = [];
+        
+        // Setup initial UI states
+        window.addEventListener('DOMContentLoaded', () => {
+            loadModels();
+            loadTables();
+            loadQueryHistory();
+            
+            // Check light theme config
+            if (localStorage.getItem('theme') === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.setAttribute('data-theme', 'light');
+                const themeIcon = document.getElementById('theme-toggle-icon');
+                if (themeIcon) {
+                    themeIcon.className = 'fa-solid fa-moon text-sm';
+                }
+            }
+        });
+
+        // Robust response verification helper to prevent unexpected HTML parsing syntax errors
+        function handleResponse(res) {
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return res.json().then(data => {
+                    if (!res.ok) {
+                        return Promise.reject(new Error(data.error || `HTTP ${res.status}`));
+                    }
+                    return data;
+                });
+            } else {
+                return res.text().then(text => {
+                    let errMsg = `HTTP ${res.status}`;
+                    const titleMatch = text.match(/<title>(.*?)<\/title>/i);
+                    if (titleMatch && titleMatch[1]) {
+                        errMsg += `: ${titleMatch[1]}`;
+                    } else {
+                        errMsg += `: Non-JSON response received`;
+                    }
+                    return Promise.reject(new Error(errMsg));
+                });
+            }
+        }
+
+        // Load models list
+        function loadModels() {
+            fetch('/models')
+                .then(handleResponse)
+                .then(data => {
+                    modelList = data.models || [];
+                    populateModelSwitcher(modelList);
+                })
+                .catch(err => console.error("API error fetching models:", err));
+        }
+
+        // Populate model switcher dropdown
+        function populateModelSwitcher(models) {
+            const switcher = document.getElementById('model-switcher');
+            switcher.innerHTML = '';
+            
+            if (models.length === 0) {
+                switcher.innerHTML = '<option value="llama3.2:1b">llama3.2:1b</option>';
+                activeModel = 'llama3.2:1b';
+                return;
+            }
+            
+            models.forEach(model => {
+                const opt = document.createElement('option');
+                opt.value = model;
+                opt.innerText = model;
+                switcher.appendChild(opt);
+            });
+            
+            // Prefer llama3.2:latest or llama3:latest if they exist, otherwise first model
+let defaultModel = "llama3.2:1b";
+
+if (!models.includes("llama3.2:1b")) {
+    defaultModel = models[0];
+}
+            
+            switcher.value = defaultModel;
+            activeModel = defaultModel;
+        }
+
+        function onModelSwitched(val) {
+            activeModel = val;
+        }
+
+        // Setup responsive Plotly chart resizing on window resize
+        window.addEventListener('resize', () => {
+            const charts = ['chart', 'forecast-chart'];
+            charts.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.layout) Plotly.Plots.resize(el);
+            });
+        });
+
+        // Toggle Sidebar state
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggleIcon = document.getElementById('sidebar-toggle-icon');
+            
+            if (sidebar.classList.contains('w-64')) {
+                sidebar.classList.replace('w-64', 'w-16');
+                toggleIcon.className = 'fa-solid fa-chevron-right text-sm';
+                document.querySelectorAll('.sidebar-label').forEach(el => el.classList.add('hidden'));
+                document.getElementById('sidebar-brand').classList.add('hidden');
+                document.getElementById('dataset-status-widget').classList.add('hidden');
+                document.getElementById('sidebar-user-section').classList.add('hidden');
+            } else {
+                sidebar.classList.replace('w-16', 'w-64');
+                toggleIcon.className = 'fa-solid fa-chevron-left text-sm';
+                document.querySelectorAll('.sidebar-label').forEach(el => el.classList.remove('hidden'));
+                document.getElementById('sidebar-brand').classList.remove('hidden');
+                document.getElementById('dataset-status-widget').classList.remove('hidden');
+                document.getElementById('sidebar-user-section').classList.remove('hidden');
+            }
+            // Trigger Plotly resize when sidebar changes width
+            setTimeout(() => {
+                const charts = ['chart', 'forecast-chart'];
+                charts.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el.layout) Plotly.Plots.resize(el);
+                });
+            }, 300);
+        }
+
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // Toggle Dark/Light Mode Theme
+        function toggleTheme() {
+            const doc = document.documentElement;
+            const themeIcon = document.getElementById('theme-toggle-icon');
+            
+            if (doc.classList.contains('dark')) {
+                doc.classList.remove('dark');
+                doc.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+                themeIcon.className = 'fa-solid fa-moon text-sm';
+            } else {
+                doc.classList.add('dark');
+                doc.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                themeIcon.className = 'fa-solid fa-sun text-sm';
+            }
+            
+            // Re-render active Plotly chart with corrected layout properties
+            if (activeChartData) {
+                renderPlotlyChart("chart", activeChartData, document.getElementById('chart-type-override').value);
+            }
+        }
+
+        // Switch Active Screen Tabs
+        function switchTab(tabId) {
+            // Hide all tab screens
+            document.getElementById('tab-dashboard').classList.add('hidden');
+            document.getElementById('tab-sql-editor').classList.add('hidden');
+            document.getElementById('tab-data-explorer').classList.add('hidden');
+            document.getElementById('tab-forecast-analytics').classList.add('hidden');
+            document.getElementById('tab-query-history').classList.add('hidden');
+            
+            // Deactivate all sidebar items
+            document.getElementById('nav-dashboard').classList.remove('nav-active');
+            document.getElementById('nav-sql-editor').classList.remove('nav-active');
+            document.getElementById('nav-data-explorer').classList.remove('nav-active');
+            document.getElementById('nav-forecast-analytics').classList.remove('nav-active');
+            document.getElementById('nav-query-history').classList.remove('nav-active');
+            
+            // Show active tab screen
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            
+            // Highlight active sidebar navigation button
+            document.getElementById(`nav-${tabId}`).classList.add('nav-active');
+            
+            currentTab = tabId;
+            
+            // Update Page title
+            const pageTitles = {
+                'dashboard': 'BI Dashboard Analytics',
+                'sql-editor': 'AI SQL Generator & Console',
+                'data-explorer': 'Dataset Explorer & Schema Metadata',
+                'forecast-analytics': 'Forecast Predictive Engine',
+                'query-history': 'Query History Audit Logs'
+            };
+            document.getElementById('page-title').innerText = pageTitles[tabId] || 'Analytics Workspace';
+            
+            // Trigger Plotly Resize
+            setTimeout(() => {
+                const el = document.getElementById(tabId === 'dashboard' ? 'chart' : 'forecast-chart');
+                if (el && el.layout) Plotly.Plots.resize(el);
+            }, 100);
+        }
+
+        // Loader helper
+        function showLoading(text) {
+            const overlay = document.getElementById('loadingOverlay');
+            document.getElementById('loadingText').innerText = text;
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.classList.add('active');
+            }, 10);
+        }
+        
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+            }, 300);
+        }
+
+        // Load Tables list
+        function loadTables(selectTableName = '') {
+            fetch('/tables')
+                .then(handleResponse)
+                .then(data => {
+                    tableList = data.tables || [];
+                    populateDatasetSwitchers(tableList, selectTableName);
+                    populateExplorerTableList(tableList);
+                })
+                .catch(err => console.error("API error fetching tables:", err));
+        }
+
+        // Clear all dataset-specific UI elements when there is no dataset loaded
+        function clearDatasetUI() {
+            activeTable = '';
+            
+            // Clear schema view labels and placeholder
+            const schemaGrid = document.getElementById('schema-viewer-grid');
+            if (schemaGrid) {
+                schemaGrid.innerHTML = `
+                    <div class="p-3 bg-white/5 border border-white/5 rounded-lg text-center col-span-full">
+                        <span class="text-slate-400 text-xs italic">No dataset schema available</span>
+                    </div>
+                `;
+            }
+            const schemaLbl = document.getElementById('schema-viewer-tbl-lbl');
+            if (schemaLbl) {
+                schemaLbl.innerText = 'No dataset selected';
+            }
+            
+            // Clear data explorer preview table placeholder and label
+            const expTable = document.getElementById('explorerPreviewTable');
+            if (expTable) {
+                expTable.innerHTML = `
+                    <thead><tr><th class="px-3 py-2 text-left">Columns</th></tr></thead>
+                    <tbody><tr><td class="px-3 py-4 text-slate-500 italic text-center">No dataset loaded. Upload a CSV/Excel above.</td></tr></tbody>
+                `;
+            }
+            const expLbl = document.getElementById('explorer-preview-lbl');
+            if (expLbl) {
+                expLbl.innerText = 'No dataset selected';
+            }
+            
+            // Clear main KPI Cards panel
+            const kpiContainer = document.getElementById('kpi-panel-container');
+            if (kpiContainer) {
+                kpiContainer.innerHTML = `
+                    <div class="glass-panel p-4 flex items-center justify-between border-white/5 col-span-full text-center py-6 text-slate-400 text-sm">
+                        No active dataset loaded. Please restore default or upload a CSV.
+                    </div>
+                `;
+            }
+            
+            // Clear main chart placeholder
+            const chartDiv = document.getElementById('chart');
+            if (chartDiv) {
+                chartDiv.className = 'flex-1 flex items-center justify-center text-slate-400 text-sm';
+                chartDiv.innerHTML = `
+                    <div class="text-center text-slate-500">
+                        <i class="fa-solid fa-circle-info text-2xl mb-1 text-slate-600"></i>
+                        <p class="text-xs">No active dataset loaded</p>
+                    </div>
+                `;
+            }
+            
+            // Clear active query output table and row count label
+            const resultTable = document.getElementById('resultTable');
+            if (resultTable) {
+                resultTable.innerHTML = `
+                    <thead><tr><th class="px-4 py-3 text-left">Columns</th></tr></thead>
+                    <tbody><tr><td class="px-4 py-3 text-slate-500 italic text-center">No active query data. Ask a question to fetch results.</td></tr></tbody>
+                `;
+            }
+            const previewCount = document.getElementById('query-preview-count');
+            if (previewCount) {
+                previewCount.innerText = 'Showing 0 rows';
+            }
+            
+            // Sync with SQL terminal output table
+            const editorResultTable = document.getElementById('editorResultTable');
+            if (editorResultTable) {
+                editorResultTable.innerHTML = `
+                    <thead><tr><th class="px-3 py-2 text-left">Columns</th></tr></thead>
+                    <tbody><tr><td class="px-3 py-4 text-slate-500 italic text-center">Execute a query from the SQL panel to display tabular results here.</td></tr></tbody>
+                `;
+            }
+            
+            // Clear SQL editor textarea
+            const textarea = document.getElementById('sql-editor-textarea');
+            if (textarea) {
+                textarea.value = '';
+            }
+            
+            currentQueryResults = null;
+            activeChartData = null;
+        }
+
+        // Populate header switcher and Explorer sidebar list
+        function populateDatasetSwitchers(tables, selectTableName = '') {
+            const switcher = document.getElementById('dataset-switcher');
+            switcher.innerHTML = '';
+            
+            if (tables.length === 0) {
+                switcher.innerHTML = '<option value="">No Dataset</option>';
+                updateActiveDatasetStatus('');
+                clearDatasetUI();
+                return;
+            }
+            
+            tables.forEach(tbl => {
+                const opt = document.createElement('option');
+                opt.value = tbl;
+                opt.innerText = tbl;
+                switcher.appendChild(opt);
+            });
+            
+            // Auto select
+            let defaultSelect = tables[0];
+            if (selectTableName && tables.includes(selectTableName)) {
+                defaultSelect = selectTableName;
+            } else if (activeTable && tables.includes(activeTable)) {
+                defaultSelect = activeTable;
+            }
+            
+            switcher.value = defaultSelect;
+            onDatasetSwitched(defaultSelect);
+        }
+
+        function updateActiveDatasetStatus(tableName) {
+            activeTable = tableName;
+            const dot = document.getElementById('active-dataset-dot');
+            const lbl = document.getElementById('active-dataset-lbl');
+            
+            if (tableName) {
+                lbl.innerText = tableName;
+                dot.className = 'fa-solid fa-circle text-[8px] text-emerald-500 animate-pulse';
+            } else {
+                lbl.innerText = 'No Dataset';
+                dot.className = 'fa-solid fa-circle text-[8px] text-red-500 animate-pulse';
+            }
+        }
+
+        function populateExplorerTableList(tables) {
+            const container = document.getElementById('tables-list-container');
+            container.innerHTML = '';
+            
+            if (tables.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-500 italic">No datasets loaded. Upload a CSV/Excel above.</p>';
+                return;
+            }
+            
+            tables.forEach(tbl => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'flex items-center gap-1.5 w-full';
+                
+                const btn = document.createElement('button');
+                btn.className = `flex-1 text-left p-2.5 rounded-lg border text-xs flex items-center justify-between transition ${tbl === activeTable ? 'bg-purple-600/10 border-purple-500/40 text-purple-300 font-bold' : 'bg-slate-800/40 border-white/5 text-slate-300 hover:bg-slate-800/80'}`;
+                btn.onclick = () => {
+                    document.getElementById('dataset-switcher').value = tbl;
+                    onDatasetSwitched(tbl);
+                };
+                
+                btn.innerHTML = `
+                    <span class="truncate"><i class="fa-solid fa-table mr-2 text-slate-500"></i>${tbl}</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+                `;
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'p-2.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/15 hover:text-red-300 transition text-xs flex items-center justify-center';
+                deleteBtn.title = `Delete dataset ${tbl}`;
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Are you sure you want to permanently delete the dataset "${tbl}"?`)) {
+                        deleteDataset(tbl);
+                    }
+                };
+                deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+                
+                rowDiv.appendChild(btn);
+                rowDiv.appendChild(deleteBtn);
+                container.appendChild(rowDiv);
+            });
+        }
+
+        // Send request to delete table from SQLite
+        function deleteDataset(tableName) {
+            showLoading(`Deleting dataset ${tableName}...`);
+            fetch(`/delete_table/${encodeURIComponent(tableName)}`, { method: 'DELETE' })
+                .then(handleResponse)
+                .then(data => {
+                    hideLoading();
+                    alert(`Dataset "${tableName}" deleted successfully!`);
+                    
+                    // If the active table was deleted, reset activeTable state
+                    if (activeTable === tableName) {
+                        activeTable = '';
+                    }
+                    loadTables(); // Reload tables from backend
+                })
+                .catch(err => {
+                    hideLoading();
+                    alert("Connection error: " + err.message);
+                });
+        }
+
+        // Dropdown switch callback
+        function onDatasetSwitched(val) {
+            updateActiveDatasetStatus(val);
+            populateExplorerTableList(tableList);
+            
+            // Dynamic Header Button Text
+            const initBtn = document.getElementById('init-btn');
+            if (initBtn) {
+                if (val === 'sales') {
+                    initBtn.innerHTML = '<i class="fa-solid fa-sync"></i> <span class="hidden sm:inline">Restore Default</span><span class="sm:hidden">Restore</span>';
+                } else if (val) {
+                    initBtn.innerHTML = `<i class="fa-solid fa-refresh"></i> <span class="hidden sm:inline">Reload ${val}</span><span class="sm:hidden">Reload</span>`;
+                } else {
+                    initBtn.innerHTML = '<i class="fa-solid fa-sync"></i> <span class="hidden sm:inline">Restore Default</span><span class="sm:hidden">Restore</span>';
+                }
+            }
+            
+            // Clear forecasting view to prevent stale data cross-over
+            resetForecastingView();
+            
+            if (!val) {
+                clearDatasetUI();
+                return;
+            }
+            
+            // Load Schema, preview and KPIs in background
+            fetchSchemaViewer(val);
+            fetchKPIMetrics(val);
+        }
+
+        // Reset forecast model settings and chart when switching datasets
+        function resetForecastingView() {
+            const fcControls = document.getElementById('forecast-controls-box');
+            if (fcControls) {
+                fcControls.innerHTML = '<p class="text-xs text-slate-500 italic">No historical query run. Run a query in Dashboard tab first containing a date column and a numeric measure.</p>';
+            }
+            const fcBtn = document.getElementById('compute-forecast-btn');
+            if (fcBtn) {
+                fcBtn.disabled = true;
+            }
+            
+            const chartDiv = document.getElementById('forecast-chart');
+            if (chartDiv) {
+                chartDiv.className = 'flex-grow flex items-center justify-center text-slate-400 text-sm';
+                chartDiv.innerHTML = `
+                    <div class="text-center">
+                        <i class="fa-solid fa-chart-gantt text-4xl text-slate-600 mb-2"></i>
+                        <p>Select data columns and click "Project Future Trend"</p>
+                    </div>
+                `;
+            }
+            currentQueryResults = null;
+        }
+
+        // Fetch KPI Metrics from table
+        function fetchKPIMetrics(tableName) {
+            fetch(`/table_kpi/${encodeURIComponent(tableName)}`)
+                .then(handleResponse)
+                .then(data => {
+                    renderKPICards(data.kpis, data.total_rows);
+                })
+                .catch(err => console.error("Error loading KPIs:", err.message));
+        }
+
+        function renderKPICards(kpis, totalRows) {
+            const container = document.getElementById('kpi-panel-container');
+            container.innerHTML = '';
+            
+            // Prepend Row Count Card
+            const rowCard = createKPICard("Record Count", totalRows.toLocaleString(), "list-ol", "blue");
+            container.appendChild(rowCard);
+            
+            // Append API dynamic KPIs
+            kpis.forEach((kpi, idx) => {
+                const colors = ["emerald", "purple", "cyan", "indigo"];
+                const color = colors[idx % colors.length];
+                const card = createKPICard(kpi.label, kpi.value, kpi.icon || "chart-bar", color);
+                container.appendChild(card);
+            });
+        }
+
+        function createKPICard(label, value, icon, color) {
+            const card = document.createElement('div');
+            card.className = 'glass-panel p-4 flex items-center justify-between border-white/5 hover-glow transition-all duration-200';
+            
+            const colorClasses = {
+                blue: { bg: 'bg-blue-500/10', txt: 'text-blue-400' },
+                emerald: { bg: 'bg-emerald-500/10', txt: 'text-emerald-400' },
+                purple: { bg: 'bg-purple-500/10', txt: 'text-purple-400' },
+                cyan: { bg: 'bg-cyan-500/10', txt: 'text-cyan-400' },
+                indigo: { bg: 'bg-indigo-500/10', txt: 'text-indigo-400' }
+            };
+            const theme = colorClasses[color] || colorClasses.purple;
+            
+            card.innerHTML = `
+                <div>
+                    <span class="text-xs text-slate-400 block mb-1 font-medium">${label}</span>
+                    <span class="text-2xl font-bold font-outfit text-white">${value}</span>
+                </div>
+                <div class="w-10 h-10 rounded-lg ${theme.bg} flex items-center justify-center ${theme.txt}">
+                    <i class="fa-solid fa-${icon} text-lg"></i>
+                </div>
+            `;
+            return card;
+        }
+
+        // Fetch schema details and populate Data Explorer
+        function fetchSchemaViewer(tableName) {
+            document.getElementById('schema-viewer-tbl-lbl').innerText = `Dataset schema details for '${tableName}'`;
+            document.getElementById('explorer-preview-lbl').innerText = `Tabular preview for '${tableName}'`;
+            
+            fetch(`/table_schema/${encodeURIComponent(tableName)}`)
+                .then(handleResponse)
+                .then(data => {
+                    // Render Schema grid
+                    const schemaGrid = document.getElementById('schema-viewer-grid');
+                    schemaGrid.innerHTML = '';
+                    
+                    data.columns.forEach(col => {
+                        const box = document.createElement('div');
+                        box.className = 'p-3 bg-white/5 border border-white/5 rounded-xl text-center shadow-sm';
+                        box.innerHTML = `
+                            <span class="block text-xs font-bold text-slate-300 truncate" title="${col.name}">${col.name}</span>
+                            <span class="text-[9px] text-purple-400 uppercase tracking-widest font-semibold">${col.type}</span>
+                        `;
+                        schemaGrid.appendChild(box);
+                    });
+                    
+                    // Populate Explorer Tab Table preview
+                    renderExplorerPreviewTable(data.sample_columns, data.sample_rows);
+                })
+                .catch(err => console.error("Error loading Schema:", err.message));
+        }
+
+        let explorerRows = [];
+        let explorerCols = [];
+
+        function renderExplorerPreviewTable(cols, rows) {
+            explorerCols = cols;
+            explorerRows = rows;
+            filterPreviewTable('');
+        }
+
+        // Local search filter inside explorer
+        function filterPreviewTable(query) {
+            const table = document.getElementById('explorerPreviewTable');
+            table.innerHTML = '';
+            
+            // Build header
+            let header = "<thead><tr>";
+            explorerCols.forEach(col => {
+                header += `<th class="px-3 py-2 text-left truncate max-w-[200px]" title="${col}">${col}</th>`;
+            });
+            header += "</tr></thead>";
+            table.innerHTML = header;
+            
+            // Build filtered body
+            let tbody = "<tbody>";
+            let matchCount = 0;
+            
+            explorerRows.forEach(row => {
+                const matches = query === '' || row.some(cell => String(cell).toLowerCase().includes(query.toLowerCase()));
+                if (matches) {
+                    matchCount++;
+                    tbody += "<tr>";
+                    row.forEach(cell => {
+                        const cellStr = cell === null ? 'NULL' : String(cell);
+                        const isNull = cell === null;
+                        tbody += `<td class="px-3 py-2 truncate max-w-[200px] text-slate-300" title="${cellStr}">
+                            ${isNull ? '<span class="text-slate-600">NULL</span>' : cellStr}
+                        </td>`;
+                    });
+                    tbody += "</tr>";
+                }
+            });
+            
+            if (matchCount === 0) {
+                tbody += `<tr><td colspan="${explorerCols.length}" class="px-3 py-4 text-center text-slate-500 italic">No matches found.</td></tr>`;
+            }
+            
+            tbody += "</tbody>";
+            table.innerHTML += tbody;
+        }
+
+        // Load or restore selected dataset dynamically
+        function loadSelectedDataset() {
+            const selectedTable = document.getElementById('dataset-switcher').value;
+            if (!selectedTable) {
+                alert("Please select or upload a dataset first.");
+                return;
+            }
+            
+            if (selectedTable === 'sales') {
+                showLoading("Restoring default sales records database...");
+                fetch('/load', { method: 'POST' })
+                    .then(handleResponse)
+                    .then(data => {
+                        hideLoading();
+                        loadTables(data.table_name);
+                        alert("Default 'sales' dataset restored and loaded successfully!");
+                    })
+                    .catch(err => {
+                        hideLoading();
+                        alert("API Connection Error: " + err.message);
+                    });
+            } else {
+                showLoading(`Loading dataset '${selectedTable}'...`);
+                // Refresh table metadata and KPIs
+                fetchSchemaViewer(selectedTable);
+                fetchKPIMetrics(selectedTable);
+                setTimeout(() => {
+                    hideLoading();
+                    alert(`Dataset '${selectedTable}' loaded successfully!`);
+                }, 400);
+            }
+        }
+
+        // Handle CSV File Drag & Drop
+        function handleFileSelected(input) {
+            const zone = document.getElementById('dropzone');
+            const icon = document.getElementById('upload-icon');
+            const lbl = document.getElementById('upload-status-lbl');
+            
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                icon.className = 'fa-solid fa-file-circle-check text-3xl text-emerald-500 mb-2';
+                lbl.innerHTML = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+                zone.classList.add('border-emerald-500/30', 'bg-emerald-500/5');
+            }
+        }
+
+        // Upload custom CSV/Excel
+        function uploadCSVFile() {
+            const fileInput = document.getElementById('csvFile');
+            if (fileInput.files.length === 0) {
+                alert("Please drag or select a CSV/Excel file first.");
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            showLoading("Uploading dataset to SQLite engine...");
+            
+            fetch('/upload_csv', {
+                method: 'POST',
+                body: formData
+            })
+            .then(handleResponse)
+            .then(data => {
+                hideLoading();
+                
+                // Clear file input
+                fileInput.value = '';
+                const zone = document.getElementById('dropzone');
+                zone.className = 'border-2 border-dashed border-white/10 hover:border-purple-500/40 rounded-xl p-6 text-center cursor-pointer transition bg-white/5 flex flex-col items-center justify-center min-h-[140px]';
+                document.getElementById('upload-icon').className = 'fa-solid fa-file-excel text-3xl text-slate-500 mb-2';
+                document.getElementById('upload-status-lbl').innerText = 'Drag files here or click to browse';
+                
+                loadTables(data.table_name);
+                alert(data.message);
+                
+                // Jump to explorer tab
+                switchTab('data-explorer');
+            })
+            .catch(err => {
+                hideLoading();
+                alert("Upload failed: " + err.message);
+            });
+        }
+
+        // Quick suggestions submit
+        function fillAndSubmitPrompt(question) {
+            document.getElementById('chat-question').value = question;
+            askAI();
+        }
+
+        function handleChatKey(event) {
+            if (event.key === 'Enter') {
+                askAI();
+            }
+        }
+
+        // Ask AI Analytics Copilot
+function askAI() {
+    const input = document.getElementById('chat-question');
+    const question = input.value.trim();
+
+    if (!question) {
+        alert("Please enter a question.");
+        return;
+    }
+
+    if (!activeTable) {
+        alert("Please load a dataset before asking questions.");
+        return;
+    }
+
+    const indicator = document.getElementById('typing-indicator');
+    const sendBtn = document.querySelector('[onclick="askAI()"]');
+
+    input.value = "";
+
+    appendChatBubble(question, 'user');
+
+    indicator.classList.remove('hidden');
+
+    sendBtn.disabled = true;
+    sendBtn.classList.add("opacity-50", "cursor-not-allowed");
+
+    scrollToBottom();
+
+    const sug = document.getElementById('chat-suggestions-container');
+    if (sug) {
+        sug.classList.add('hidden');
+    }
+
+    fetch('/ask', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            question: question,
+            table_name: activeTable,
+            model: activeModel
+        })
+    })
+    .then(handleResponse)
+    .then(data => {
+        indicator.classList.add('hidden');
+
+        sendBtn.disabled = false;
+        sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
+
+        if (data.error) {
+            appendChatBubble(
+                `Error executing request: ${data.error}`,
+                'system-error'
+            );
+
+            if (data.sql) {
+                updateTerminalSQLCode(data.sql);
+            }
+
+            return;
+        }
+
+        updateTerminalSQLCode(data.sql);
+
+        currentQueryResults = {
+            columns: data.columns,
+            rows: data.rows
+        };
+
+        renderOutputPreviewTable(data.columns, data.rows);
+
+        if (data.chart) {
+            activeChartData = data.chart;
+
+            renderPlotlyChart(
+                "chart",
+                data.chart,
+                document.getElementById('chart-type-override').value
+            );
+        } else {
+            document.getElementById('chart').innerHTML = `
+                <div class="text-center text-slate-500">
+                    <i class="fa-solid fa-circle-info text-2xl mb-1 text-slate-600"></i>
+                    <p class="text-xs">No chart generated for this data model</p>
+                </div>
+            `;
+        }
+
+        loadForecastControllers(data.columns);
+
+appendChatBubble(
+    "Query executed successfully. Chart and table updated.",
+    "ai"
+);
+
+        streamBusinessInsights(question, activeTable, data.columns, data.rows, activeModel);
+
+        loadQueryHistory();
+
+        scrollToBottom();
+    })
+    .catch(err => {
+        indicator.classList.add('hidden');
+
+        sendBtn.disabled = false;
+        sendBtn.classList.remove("opacity-50", "cursor-not-allowed");
+
+        appendChatBubble(
+            `Server communication error: ${err}`,
+            'system-error'
+        );
+
+        scrollToBottom();
+    });
+}
+        // Render standard tabular queries output
+        function renderOutputPreviewTable(cols, rows) {
+            const table = document.getElementById('resultTable');
+            table.innerHTML = '';
+            
+            document.getElementById('query-preview-count').innerText = `Showing ${rows.length} rows`;
+            
+            let header = "<thead><tr>";
+            cols.forEach(col => {
+                header += `<th class="px-4 py-3 text-left truncate max-w-[200px]" title="${col}">${col}</th>`;
+            });
+            header += "</tr></thead>";
+            table.innerHTML = header;
+            
+            let tbody = "<tbody>";
+            rows.forEach((row, i) => {
+                if (i < 50) { // Limit DOM rendering to 50 rows for safety
+                    tbody += "<tr>";
+                    row.forEach(cell => {
+                        const cellStr = cell === null ? 'NULL' : String(cell);
+                        const isNull = cell === null;
+                        tbody += `<td class="px-4 py-3 truncate max-w-[200px] text-slate-300" title="${cellStr}">
+                            ${isNull ? '<span class="text-slate-600">NULL</span>' : cellStr}
+                        </td>`;
+                    });
+                    tbody += "</tr>";
+                }
+            });
+            
+            if (rows.length > 50) {
+                tbody += `<tr><td colspan="${cols.length}" class="px-4 py-2 text-center text-purple-400 font-bold bg-purple-500/5">Truncated visualization (Showing 50 out of ${rows.length} rows)</td></tr>`;
+            }
+            
+            if (rows.length === 0) {
+                tbody += `<tr><td colspan="${cols.length}" class="px-4 py-3 text-center text-slate-500 italic">Empty output dataset.</td></tr>`;
+            }
+            
+            tbody += "</tbody>";
+            table.innerHTML += tbody;
+            
+            // Sync with SQL terminal output as well
+            const editorTable = document.getElementById('editorResultTable');
+            editorTable.innerHTML = '';
+            
+            let editorHeader = "<thead><tr>";
+            cols.forEach(col => {
+                editorHeader += `<th class="px-3 py-2 text-left truncate max-w-[150px]" title="${col}">${col}</th>`;
+            });
+            editorHeader += "</tr></thead>";
+            editorTable.innerHTML = editorHeader;
+            
+            let editorTbody = "<tbody>";
+            rows.forEach((row, i) => {
+                if (i < 20) {
+                    editorTbody += "<tr>";
+                    row.forEach(cell => {
+                        const cellStr = cell === null ? 'NULL' : String(cell);
+                        const isNull = cell === null;
+                        editorTbody += `<td class="px-3 py-2 truncate max-w-[150px] text-slate-300" title="${cellStr}">
+                            ${isNull ? '<span class="text-slate-600">NULL</span>' : cellStr}
+                        </td>`;
+                    });
+                    editorTbody += "</tr>";
+                }
+            });
+            if (rows.length > 20) {
+                editorTbody += `<tr><td colspan="${cols.length}" class="px-3 py-2 text-center text-slate-500">Truncated (Showing 20 out of ${rows.length} rows)</td></tr>`;
+            }
+            editorTbody += "</tbody>";
+            editorTable.innerHTML += editorTbody;
+        }
+
+        // Render Plotly Charts with Dark/Light styling configuration
+        function renderPlotlyChart(divId, chartData, overrideType = 'auto') {
+            const chartDiv = document.getElementById(divId);
+            chartDiv.innerHTML = '';
+            
+            // Remove flex layout centering alignment to allow Plotly correct layout
+            chartDiv.className = 'w-full h-full block text-slate-400 text-sm';
+            
+            const isDark = document.documentElement.classList.contains('dark');
+            const fontColor = isDark ? '#9ca3af' : '#4b5563';
+            const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+            const paperBg = 'rgba(0,0,0,0)';
+            
+            const chartType = overrideType === 'auto' ? chartData.type : overrideType;
+            
+            let plotlyData = [];
+            let plotlyLayout = {
+                paper_bgcolor: paperBg,
+                plot_bgcolor: paperBg,
+                font: { color: fontColor, family: 'Inter, sans-serif' },
+                xaxis: { title: { text: chartData.x_title, font: { size: 12 } }, gridcolor: gridColor, linecolor: gridColor },
+                yaxis: { title: { text: chartData.y_title, font: { size: 12 } }, gridcolor: gridColor, linecolor: gridColor },
+                margin: { t: 40, b: 60, l: 60, r: 20 },
+                title: { text: chartData.title, font: { size: 14, family: 'Outfit, sans-serif' } }
+            };
+            
+            if (chartType === 'bar') {
+                plotlyData = [{
+                    x: chartData.x,
+                    y: chartData.y,
+                    type: 'bar',
+                    marker: {
+                        color: chartData.y,
+                        colorscale: isDark ? 'Viridis' : 'Portland'
+                    }
+                }];
+            } else if (chartType === 'line') {
+                plotlyData = [{
+                    x: chartData.x,
+                    y: chartData.y,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#a855f7', width: 3 },
+                    marker: { color: '#06b6d4', size: 6 }
+                }];
+            } else if (chartType === 'pie') {
+                plotlyData = [{
+                    labels: chartData.x,
+                    values: chartData.y,
+                    type: 'pie',
+                    hole: 0.4,
+                    textinfo: 'percent+label',
+                    marker: {
+                        colorscale: 'Electric'
+                    }
+                }];
+                // Reset axes for pie
+                delete plotlyLayout.xaxis;
+                delete plotlyLayout.yaxis;
+            } else if (chartType === 'scatter') {
+                plotlyData = [{
+                    x: chartData.x,
+                    y: chartData.y,
+                    type: 'scatter',
+                    mode: 'markers',
+                    marker: { color: '#ec4899', size: 8 }
+                }];
+            } else if (chartType === 'heatmap') {
+                plotlyData = [{
+                    x: chartData.x,
+                    y: chartData.y,
+                    z: chartData.z,
+                    type: 'heatmap',
+                    colorscale: 'Bluered'
+                }];
+                plotlyLayout.xaxis.title.text = chartData.x_title || 'X';
+                plotlyLayout.yaxis.title.text = chartData.y_title || 'Y';
+            }
+            
+            Plotly.newPlot(divId, plotlyData, plotlyLayout, { responsive: true, displayModeBar: false });
+        }
+
+        // SSE Streaming AI insights
+        function streamBusinessInsights(question, tableName, columns, rows, model) {
+            const indicator = document.getElementById('typing-indicator');
+            
+            // Create target bubble container
+            const chatContainer = document.getElementById('chat-messages');
+            
+            const aiBubble = document.createElement('div');
+            aiBubble.className = 'flex gap-3 max-w-[85%] slide-up';
+            aiBubble.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shrink-0">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div class="p-4 rounded-2xl bg-slate-800/40 border border-white/5 text-xs leading-relaxed text-slate-200 shadow-sm w-full" id="streaming-content-container">
+                    <div class="font-bold text-slate-400 mb-1 flex items-center gap-1.5"><i class="fa-solid fa-bolt text-purple-400 text-[10px]"></i> AI Executive Summary</div>
+                    <div id="streaming-text" class="prose prose-invert max-w-none text-slate-300"></div>
+                </div>
+            `;
+            chatContainer.appendChild(aiBubble);
+            
+            const targetText = aiBubble.querySelector('#streaming-text');
+            let fullText = "";
+            
+            // Truncate rows to keep the JSON payload sent to SSE lightweight (max 15 rows)
+            const subsetRows = rows.slice(0, 15);
+            
+            // Fetch via POST stream
+            fetch('/insight_stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: question,
+                    table_name: tableName,
+                    columns: columns,
+                    rows: subsetRows,
+                    model: model
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        let errMsg = `HTTP ${response.status}`;
+                        const titleMatch = text.match(/<title>(.*?)<\/title>/i);
+                        if (titleMatch && titleMatch[1]) {
+                            errMsg += `: ${titleMatch[1]}`;
+                        } else {
+                            try {
+                                const parsed = JSON.parse(text);
+                                if (parsed.error) errMsg += `: ${parsed.error}`;
+                            } catch(e) {}
+                        }
+                        return Promise.reject(new Error(errMsg));
+                    });
+                }
+                indicator.classList.add('hidden');
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                function readChunk() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            // Stream ended, render final recommendations card
+                            appendRecommendationCard(fullText);
+                            loadQueryHistory(); // refresh logs
+                            return;
+                        }
+                        
+                        const chunkStr = decoder.decode(value);
+                        const lines = chunkStr.split('\n');
+                        
+                        lines.forEach(line => {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const parsed = JSON.parse(line.substring(6));
+                                    if (parsed.chunk) {
+                                        fullText += parsed.chunk;
+                                        targetText.innerHTML = parseMarkdown(fullText);
+                                        scrollToBottom();
+                                    }
+                                    if (parsed.error) {
+                                        targetText.innerHTML += `<p class="text-red-400 mt-2">LLM Stream Error: ${parsed.error}</p>`;
+                                    }
+                                } catch (e) {
+                                    // Parse line errors
+                                }
+                            }
+                        });
+                        
+                        return readChunk();
+                    });
+                }
+                
+                return readChunk();
+            })
+            .catch(err => {
+                indicator.classList.add('hidden');
+                targetText.innerHTML = `<span class="text-red-400">Error reading stream chunks: ${err}</span>`;
+            });
+        }
+
+        // Render Actionable Business Recommendation cards
+        function appendRecommendationCard(aiOutputText) {
+            // Find recommendations block inside the AI stream
+            // We can add a dedicated styled block
+        }
+
+        // Markdown-to-HTML parser function
+        function parseMarkdown(text) {
+            if (!text) return "";
+            let html = text;
+            
+            // Headers
+            html = html.replace(/^### (.*$)/gim, '<h4 class="text-sm font-bold mt-3 mb-1 text-purple-400 uppercase tracking-wide flex items-center gap-1.5"><i class="fa-solid fa-caret-right text-[10px]"></i> $1</h4>');
+            html = html.replace(/^## (.*$)/gim, '<h3 class="text-md font-bold mt-4 mb-2 text-cyan-400 border-b border-white/5 pb-1">$1</h3>');
+            html = html.replace(/^# (.*$)/gim, '<h2 class="text-lg font-extrabold mt-4 mb-2 text-white">$1</h2>');
+            
+            // Bold
+            html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="font-bold text-white bg-purple-500/10 px-1 py-0.5 rounded">$1</strong>');
+            
+            // Bullets
+            let lines = html.split('\n');
+            let inList = false;
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (line.startsWith('* ') || line.startsWith('- ')) {
+                    let content = line.substring(2);
+                    if (!inList) {
+                        lines[i] = '<ul class="list-disc pl-5 my-2 space-y-1.5 text-slate-300">\n<li>' + content + '</li>';
+                        inList = true;
+                    } else {
+                        lines[i] = '<li>' + content + '</li>';
+                    }
+                } else {
+                    if (inList) {
+                        lines[i-1] = lines[i-1] + '\n</ul>';
+                        inList = false;
+                    }
+                }
+            }
+            if (inList) {
+                lines[lines.length-1] = lines[lines.length-1] + '\n</ul>';
+            }
+            html = lines.join('\n');
+            
+            // Paragraph breaks
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+
+        // Custom SQL terminal operations
+        function updateTerminalSQLCode(sql) {
+            const textarea = document.getElementById('sql-editor-textarea');
+            if (textarea) {
+                textarea.value = sql;
+            }
+        }
+
+        function runEditorSQL() {
+            const sql = document.getElementById('sql-editor-textarea').value.trim();
+            if (!sql) return;
+            
+            showLoading("Executing SQL query directly in SQLite...");
+            fetch('/run_custom_sql', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sql: sql, table_name: activeTable })
+            })
+            .then(handleResponse)
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    alert("SQL Execution Error:\n" + data.error);
+                    return;
+                }
+                
+                // Render outputs
+                currentQueryResults = { columns: data.columns, rows: data.rows };
+                renderOutputPreviewTable(data.columns, data.rows);
+                
+                if (data.chart) {
+                    activeChartData = data.chart;
+                    renderPlotlyChart("chart", data.chart, document.getElementById('chart-type-override').value);
+                }
+                
+                // Show notification success
+                alert("Query completed successfully! Result panels updated.");
+                switchTab('dashboard'); // Jump back to Dashboard to see visualization
+            })
+            .catch(err => {
+                hideLoading();
+                alert("Server request failed: " + err);
+            });
+        }
+
+        function copySQLCode() {
+            const sql = document.getElementById('sql-editor-textarea').value;
+            navigator.clipboard.writeText(sql)
+                .then(() => alert("SQL query copied to clipboard!"))
+                .catch(err => console.error("Clipboard copy failed:", err));
+        }
+
+        // Load forecasting configurations based on columns
+        function loadForecastControllers(columns) {
+            const container = document.getElementById('forecast-controls-box');
+            container.innerHTML = '';
+            
+            if (!columns || columns.length < 2) {
+                container.innerHTML = '<p class="text-xs text-slate-500 italic">Insufficient columns to configure forecasting model.</p>';
+                return;
+            }
+            
+            // Build axis selectors
+            let selects = `
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 font-semibold">Time / Category (X-axis)</label>
+                    <select id="fc-x-select" class="w-full bg-slate-800 border border-white/10 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none">
+                        ${columns.map((c, i) => `<option value="${c}" ${i===0 ? 'selected':''}>${c}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-slate-400 font-semibold">Value Field (Y-axis)</label>
+                    <select id="fc-y-select" class="w-full bg-slate-800 border border-white/10 rounded px-2.5 py-1.5 text-xs text-slate-200 outline-none">
+                        ${columns.map((c, i) => `<option value="${c}" ${i===1 ? 'selected':''}>${c}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+            container.innerHTML = selects;
+            
+            // Enable compile buttons
+            document.getElementById('compute-forecast-btn').disabled = false;
+        }
+
+        // Execute Forecast projection
+        function computeForecast() {
+            if (!currentQueryResults) {
+                alert("Please run a query on the dashboard first to load data into the forecast memory.");
+                return;
+            }
+            
+            const xField = document.getElementById('fc-x-select').value;
+            const yField = document.getElementById('fc-y-select').value;
+            
+            showLoading("Applying trend forecasting mathematical models...");
+            
+            fetch('/forecast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rows: currentQueryResults.rows,
+                    columns: currentQueryResults.columns
+                })
+            })
+            .then(handleResponse)
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    alert("Forecast compiling error:\n" + data.error);
+                    return;
+                }
+                
+                renderForecastPlot(data);
+            })
+            .catch(err => {
+                hideLoading();
+                alert("Server forecasting failed: " + err);
+            });
+        }
+
+        function renderForecastPlot(data) {
+            const chartDiv = document.getElementById('forecast-chart');
+            chartDiv.innerHTML = '';
+            chartDiv.className = 'w-full h-full block text-slate-400 text-sm';
+            
+            const isDark = document.documentElement.classList.contains('dark');
+            const fontColor = isDark ? '#9ca3af' : '#4b5563';
+            const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+            const paperBg = 'rgba(0,0,0,0)';
+            
+            const traceHistory = {
+                x: data.history_x,
+                y: data.history_y,
+                name: 'Historical Data',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#a855f7', width: 3 },
+                marker: { color: '#a855f7', size: 6 }
+            };
+            
+            const traceForecast = {
+                x: data.forecast_x,
+                y: data.forecast_y,
+                name: 'AI Linear Projection',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#06b6d4', width: 2, dash: 'dash' },
+                marker: { color: '#06b6d4', size: 6 }
+            };
+            
+            const layout = {
+                paper_bgcolor: paperBg,
+                plot_bgcolor: paperBg,
+                font: { color: fontColor, family: 'Inter, sans-serif' },
+                xaxis: { title: { text: data.x_title, font: { size: 12 } }, gridcolor: gridColor, linecolor: gridColor },
+                yaxis: { title: { text: data.y_title, font: { size: 12 } }, gridcolor: gridColor, linecolor: gridColor },
+                margin: { t: 40, b: 60, l: 60, r: 20 },
+                title: { text: data.title, font: { size: 14, family: 'Outfit, sans-serif' } },
+                legend: { orientation: 'h', y: -0.2 }
+            };
+            
+            Plotly.newPlot('forecast-chart', [traceHistory, traceForecast], layout, { responsive: true, displayModeBar: false });
+        }
+
+        // Fetch query history log
+        function loadQueryHistory() {
+            fetch('/history')
+                .then(handleResponse)
+                .then(data => {
+                    if (data.error) {
+                        console.error(data.error);
+                        return;
+                    }
+                    renderQueryHistoryRows(data.history);
+                })
+                .catch(err => console.error("Error reading history logs:", err));
+        }
+
+        function renderQueryHistoryRows(history) {
+            const table = document.querySelector('#historyTable tbody');
+            table.innerHTML = '';
+            
+            if (history.length === 0) {
+                table.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-slate-500 italic text-center">No logs found. Run queries in the assistant.</td></tr>';
+                return;
+            }
+            
+            history.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5 hover:bg-white/5';
+                
+                const statusColor = log.status === 'success' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20';
+                
+                // Format timestamp
+                const dateObj = new Date(log.timestamp);
+                const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-slate-400 font-mono text-[10px]">${timeStr}</td>
+                    <td class="px-4 py-3 font-semibold text-white truncate max-w-[100px]" title="${log.table_name}">${log.table_name}</td>
+                    <td class="px-4 py-3 text-slate-300 truncate max-w-[200px]" title="${log.question}">${log.question}</td>
+                    <td class="px-4 py-3 text-cyan-400 font-mono text-[11px] truncate max-w-[220px]" title="${log.sql_query}"><code>${log.sql_query}</code></td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${statusColor}">${log.status}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <button onclick="reRunHistoryItem('${log.id}')" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/5 hover:text-white transition">
+                            Load
+                        </button>
+                    </td>
+                `;
+                table.appendChild(tr);
+            });
+        }
+
+        // Fetch query details from history and re-run
+        function reRunHistoryItem(logId) {
+            // Find in current page logs list to avoid DB fetch if possible
+            showLoading("Re-executing history records...");
+            
+            fetch('/history')
+                .then(handleResponse)
+                .then(data => {
+                    const log = data.history.find(h => String(h.id) === String(logId));
+                    hideLoading();
+                    
+                    if (!log) {
+                        alert("Log item not found in DB.");
+                        return;
+                    }
+                    
+                    // Switch dropdown switcher table if needed
+                    document.getElementById('dataset-switcher').value = log.table_name;
+                    updateActiveDatasetStatus(log.table_name);
+                    
+                    // Put question in Chat & Trigger execution
+                    document.getElementById('chat-question').value = log.question;
+                    askAI();
+                    switchTab('dashboard'); // Jump back to dashboard tab
+                })
+                .catch(err => {
+                    hideLoading();
+                    alert("Failed: " + err);
+                });
+        }
+
+        // Chat utilities
+        function appendChatBubble(text, sender) {
+            const container = document.getElementById('chat-messages');
+            const bubble = document.createElement('div');
+            bubble.className = `flex gap-3 max-w-[85%] slide-up ${sender === 'user' ? 'ml-auto flex-row-reverse' : ''}`;
+            
+            let iconClass = 'fa-solid fa-user';
+            let bgClass = 'bg-slate-800/80 text-slate-200 border-white/5';
+            let iconBg = 'bg-purple-600/10 text-purple-400 border-purple-500/20';
+            
+            if (sender === 'system-error') {
+                iconClass = 'fa-solid fa-triangle-exclamation';
+                bgClass = 'bg-red-500/5 text-red-300 border-red-500/20';
+                iconBg = 'bg-red-500/10 text-red-400 border-red-500/20';
+            } else if (sender === 'user') {
+                iconClass = 'fa-solid fa-circle-user';
+                bgClass = 'bg-gradient-to-r from-purple-600/35 to-cyan-500/35 text-white border-cyan-500/20';
+                iconBg = 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+            }
+            
+            bubble.innerHTML = `
+                <div class="w-8 h-8 rounded-full ${iconBg} flex items-center justify-center border shrink-0">
+                    <i class="${iconClass}"></i>
+                </div>
+                <div class="p-3.5 rounded-2xl border ${bgClass} text-xs leading-relaxed shadow-sm w-full">
+                    ${sender === 'user' ? text : parseMarkdown(text)}
+                </div>
+            `;
+            
+            container.appendChild(bubble);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-messages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearChat() {
+            if (confirm("Are you sure you want to clear the conversation log?")) {
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = `
+                    <div class="flex gap-3 max-w-[85%] slide-up">
+                        <div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 shrink-0">
+                            <i class="fa-solid fa-robot"></i>
+                        </div>
+                        <div class="p-3 rounded-2xl bg-slate-800/60 border border-white/5 text-xs leading-relaxed text-slate-200">
+                            Hello! Conversation cleared. Ask me another business analytics question below!
+                        </div>
+                    </div>
+                `;
+                const sug = document.getElementById('chat-suggestions-container');
+                if (sug) sug.classList.remove('hidden');
+            }
+        }
+
+        // Export table dataset as CSV download
+        function exportTableToCSV() {
+            if (!currentQueryResults || currentQueryResults.rows.length === 0) {
+                alert("No query results to export. Run a query first.");
+                return;
+            }
+            
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Header row
+            csvContent += currentQueryResults.columns.join(",") + "\n";
+            
+            // Data rows
+            currentQueryResults.rows.forEach(row => {
+                const rowStr = row.map(val => {
+                    const valStr = String(val).replace(/"/g, '""');
+                    return valStr.includes(",") ? `"${valStr}"` : valStr;
+                }).join(",");
+                csvContent += rowStr + "\n";
+            });
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `aether_bi_query_${activeTable}_export.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Plotly Chart Image download helper
+        function downloadChartImage() {
+            const el = document.getElementById('chart');
+            if (el && el.layout) {
+                Plotly.downloadImage(el, {
+                    format: 'png',
+                    width: 1200,
+                    height: 600,
+                    filename: `aether_bi_chart_${activeTable}`
+                });
+            } else {
+                alert("No visualization active to download.");
+            }
+        }
+
+        // Manual Chart Type Override
+        function overrideChartType(val) {
+            if (activeChartData) {
+                renderPlotlyChart("chart", activeChartData, val);
+            }
+        }
+    </script>
+</body>
+</html>
